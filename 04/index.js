@@ -20,7 +20,6 @@ const checkInDirection = (posX, posY, dirX, dirY) => {
   if (totalY < 0 || totalY >= map.length) {
     return false;
   }
-  console.log(posX, totalX, posY, totalY);
 
   if (
     map[posY][posX] === "X" &&
@@ -40,7 +39,6 @@ for (let y = 0; y < map.length; y++) {
     if (map[y][x] === "X") {
       // W
       if (checkInDirection(x, y, 1, 0)) {
-        console.log();
         found++;
       }
 

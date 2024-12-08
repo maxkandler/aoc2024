@@ -51,9 +51,6 @@ for (const [antenna, positions] of Object.entries(antennas)) {
         antinodePosition.y < height &&
         !antinodes.find(
           (pos) => pos.x === antinodePosition.x && pos.y === antinodePosition.y
-        ) &&
-        !resonantAntinodes.find(
-          (pos) => pos.x === antinodePosition.x && pos.y === antinodePosition.y
         )
       ) {
         antinodes.push(antinodePosition);
@@ -105,7 +102,7 @@ for (const antinode of resonantAntinodes) {
 const mapString = map.map((line) => line.join("")).join("\n");
 
 console.log({
-  antinodes: antinodes.length,
+  antinodes: antinodes.length ,
   sum: mapString.split("").filter((char) => char !== "." && char !== "\n")
     .length,
 });

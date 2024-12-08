@@ -27,14 +27,6 @@ const checkInDirection = (posX, posY) => {
     ((map[posY - 1][posX + 1] === "M" && map[posY + 1][posX - 1] === "S") ||
       (map[posY - 1][posX + 1] === "S" && map[posY + 1][posX - 1] === "M"))
   ) {
-    console.log(
-      map[posY - 1][posX - 1],
-      map[posY][posX],
-      map[posY + 1][posX + 1],
-      map[posY - 1][posX + 1],
-      map[posY][posX],
-      map[posY + 1][posX - 1]
-    );
     return true;
   }
   return false;

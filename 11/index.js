@@ -1,5 +1,5 @@
-import { readFileSync } from "fs";
-import { Worker } from "worker_threads";
+import { readFileSync } from "node:fs";
+import { Worker } from "node:worker_threads";
 
 const data = readFileSync("./input.txt", "utf8");
 const numbers = data.split(" ").map((entry) => [Number.parseInt(entry)]);

@@ -7,7 +7,7 @@ const map = readFileSync("./input.txt", "utf8")
 // console.log(map.map((line) => line.join("")).join("\n"));
 
 let cheapest = Infinity;
-let cheapestPathTiles = [];
+let cheapestPathTiles = new Set();
 
 const costPerTurn = 1000;
 
@@ -20,77 +20,57 @@ const getCostForTurn = (direction, newDirection) => {
 };
 
 const visited = [];
+const queue = [];
 
-const findPath = (position, originalDirection, direction, traveled, cost) => {
-  if (cost > cheapest) {
-    return;
-  }
-
-  cost += getCostForTurn(originalDirection, direction);
-
-  if (map[position.y][position.x] === "E") {
-    console.log(cost, cheapest, traveled);
-    if (cost == cheapest) {
-      console.log("Found path with same cost", cost, traveled);
-      cheapestPathTiles.push(...traveled);
-    }
-    if (cost < cheapest) {
-      cheapestPathTiles = [...traveled];
-      cheapest = cost;
-    }
-    return;
-  }
-
-  if (
-    `${position.x},${position.y}` in visited &&
-    visited[`${position.x},${position.y}`] < cost
-  ) {
-    return;
-  }
-
-  if (map[position.y][position.x] === "#") {
-    return;
-  }
-
-  visited[`${position.x},${position.y}`] = cost;
-  traveled.push(`${position.x},${position.y}`);
-
+const addToQueue = (position, currentDirection, traveled, cost) => {
+  const directions = [
+    { x: 0, y: -1 },
+    { x: 1, y: 0 },
+    { x: 0, y: 1 },
+    { x: -1, y: 0 },
+  ];
   cost++;
 
-  const up = findPath(
-    { x: position.x, y: position.y - 1 },
-    direction,
-    { x: 0, y: -1 },
-    [...traveled],
-    cost
-  );
-  const right = findPath(
-    { x: position.x + 1, y: position.y },
-    direction,
-    { x: 1, y: 0 },
-    [...traveled],
-    cost
-  );
-  const down = findPath(
-    { x: position.x, y: position.y + 1 },
-    direction,
-    { x: 0, y: 1 },
-    [...traveled],
-    cost
-  );
-  const left = findPath(
-    { x: position.x - 1, y: position.y },
-    direction,
-    { x: -1, y: 0 },
-    [...traveled],
-    cost
-  );
-
-  if (up || right || down || left) {
-    return true;
+  if (visited[`${position.x},${position.y}`] + 1000 < cost) {
+    return;
   }
+  visited[`${position.x},${position.y}`] = cost;
 
-  return false;
+  for (const direction of directions) {
+    const nextPosition = {
+      x: position.x + direction.x,
+      y: position.y + direction.y,
+    };
+    if (map[nextPosition.y][nextPosition.x] === "#") {
+      continue;
+    }
+    if (traveled.includes(`${nextPosition.x},${nextPosition.y}`)) {
+      continue;
+    }
+    if (map[nextPosition.y][nextPosition.x] === "E") {
+      traveled.push(`${nextPosition.x},${nextPosition.y}`);
+      if (cost < cheapest) {
+        cheapestPathTiles = new Set(traveled);
+        cheapest = cost;
+      }
+      if (cost == cheapest) {
+        cheapestPathTiles = new Set([...cheapestPathTiles, ...traveled]);
+      }
+      return;
+    }
+
+    const newCost = cost + getCostForTurn(currentDirection, direction);
+    if (newCost > cheapest) {
+      return;
+    }
+
+    queue.push({
+      position: { x: nextPosition.x, y: nextPosition.y },
+      direction,
+      traveled: [...traveled, `${nextPosition.x},${nextPosition.y}`],
+      cost: newCost,
+    });
+  }
 };
 
 const getStartingPosition = (map) => {
@@ -105,13 +85,21 @@ const getStartingPosition = (map) => {
 
 const startPosition = getStartingPosition(map);
 
-findPath(startPosition, { x: 1, y: 0 }, { x: 1, y: 0 }, [], 0);
-
-console.log({ cheapest, countTiles: new Set(cheapestPathTiles).size });
+addToQueue(
+  startPosition,
+  { x: 1, y: 0 },
+  [`${startPosition.x},${startPosition.y}`],
+  0
+);
+while (queue.length > 0) {
+  const { position, direction, traveled, cost } = queue.shift();
+  addToQueue(position, direction, traveled, cost);
+}
+console.log({ cheapest, countTiles: cheapestPathTiles.size });
 
 for (let i = 0; i < map.length; i++) {
   for (let j = 0; j < map[i].length; j++) {
-    if (cheapestPathTiles.includes(`${j},${i}`)) {
+    if (cheapestPathTiles.has(`${j},${i}`)) {
       process.stdout.write("O");
     } else {
       process.stdout.write(map[i][j]);

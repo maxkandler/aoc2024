@@ -132,134 +132,74 @@ const getNumPadOptions = (
   return validPermutations;
 };
 
-const PAD_CACHE: Record<string, string> = {};
+const PAD_STEPS = {
+  "^-v": "vA",
+  "^-<": "v<A",
+  "^->": "v>A",
+  "^-A": ">A",
 
-const getPadSteps = (
-  currentField: string | number,
-  nextField: string | number
-): string => {
-  if (PAD_CACHE[`${currentField}-${nextField}`]) {
-    return PAD_CACHE[`${currentField}-${nextField}`];
-  }
+  "v-^": "^A",
+  "v-<": "<A",
+  "v->": ">A",
+  "v-A": "^>A",
 
-  const currentPos = findPosition(DirectionalPad, currentField);
+  "<-^": ">^A",
+  "<-v": ">A",
+  "<->": ">>A",
+  "<-A": ">>^A",
 
-  const nextPos = findPosition(DirectionalPad, nextField);
-  if (!nextPos || !currentPos) return "";
+  ">-^": "<^A",
+  ">-v": "<A",
+  ">-<": "<<A",
+  ">-A": "^A",
 
-  const moves = {
-    y: nextPos.y - currentPos.y,
-    x: nextPos.x - currentPos.x,
-  };
-
-  let instructions = "";
-
-  let tempPos = { ...currentPos };
-
-  while (moves.x !== 0 || moves.y !== 0) {
-    if (
-      instructions.at(-1) === "^" &&
-      moves.y < 0 &&
-      DirectionalPad[tempPos.y - 1][tempPos.x] !== null
-    ) {
-      instructions = instructions.concat("^");
-      moves.y += 1;
-      tempPos.y -= 1;
-      continue;
-    }
-    if (
-      instructions.at(-1) === ">" &&
-      moves.x > 0 &&
-      DirectionalPad[tempPos.y][tempPos.x + 1] !== null
-    ) {
-      instructions = instructions.concat(">");
-      moves.x -= 1;
-      tempPos.x += 1;
-      continue;
-    }
-    if (
-      instructions.at(-1) === "v" &&
-      moves.y > 0 &&
-      DirectionalPad[tempPos.y + 1][tempPos.x] !== null
-    ) {
-      instructions = instructions.concat("v");
-      moves.y -= 1;
-      tempPos.y += 1;
-      continue;
-    }
-    if (
-      instructions.at(-1) === "<" &&
-      moves.x < 0 &&
-      DirectionalPad[tempPos.y][tempPos.x - 1] !== null
-    ) {
-      instructions = instructions.concat("<");
-      moves.x += 1;
-      tempPos.x -= 1;
-      continue;
-    }
-
-    if (moves.x > 0 && DirectionalPad[tempPos.y][tempPos.x + 1] !== null) {
-      instructions = instructions.concat(">");
-      moves.x -= 1;
-      tempPos.x += 1;
-      continue;
-    }
-    if (moves.y < 0 && DirectionalPad[tempPos.y - 1][tempPos.x] !== null) {
-      instructions = instructions.concat("^");
-      moves.y += 1;
-      tempPos.y -= 1;
-      continue;
-    }
-    if (moves.y > 0 && DirectionalPad[tempPos.y + 1][tempPos.x] !== null) {
-      instructions = instructions.concat("v");
-      moves.y -= 1;
-      tempPos.y += 1;
-      continue;
-    }
-
-    if (moves.x < 0 && DirectionalPad[tempPos.y][tempPos.x - 1] !== null) {
-      instructions = instructions.concat("<");
-      moves.x += 1;
-      tempPos.x -= 1;
-      continue;
-    }
-  }
-
-  instructions = instructions.concat("A");
-
-  PAD_CACHE[`${currentField}-${nextField}`] = instructions;
-
-  return instructions;
+  "A-^": "<A",
+  "A-v": "<vA",
+  "A-<": "v<<A",
+  "A->": "vA",
 };
 
-const INST_CACHE: Record<string, string> = {};
+const getPadSteps = (from: string | number, to: string | number): string => {
+  if (from === to) return "A";
+  return PAD_STEPS[`${from}-${to}`];
+};
 
-const getInstructions = (keys: string): string => {
-  let instructions = "";
+const INST_CACHE: Record<string, { count: bigint; lastKey: string }> = {};
+
+const getInstructions = (keys: string, levels: number): bigint => {
+  if (levels === 0) {
+    return BigInt(keys.length);
+  }
+  let countOnLevel = 0n;
+
   const parts = keys.split("A");
-  let lastField: string | number = "A";
+  let from = "A";
 
   for (const [key, part] of parts.entries()) {
     const fullKey = `${part}${key === parts.length - 1 ? "" : "A"}`;
-    let partialInstructions = "";
-    if (INST_CACHE[fullKey]) {
-      // console.log("Cache hit", fullKey, INST_CACHE);
-      instructions = instructions.concat(INST_CACHE[fullKey]);
-      lastField = fullKey.at(-1)!;
+
+    if (INST_CACHE[`${fullKey}-${levels}`]) {
+      countOnLevel += INST_CACHE[`${fullKey}-${levels}`].count;
+      from = INST_CACHE[`${fullKey}-${levels}`].lastKey;
       continue;
     }
 
-    for (const key of fullKey) {
-      const nextStep = getPadSteps(lastField, key);
-      partialInstructions = partialInstructions.concat(nextStep);
-      lastField = key;
-    }
+    let countForKey = 0n;
 
-    INST_CACHE[fullKey] = partialInstructions;
-    instructions = instructions.concat(partialInstructions);
+    for (const to of fullKey) {
+      const nextSteps = getPadSteps(from, to);
+      countForKey += getInstructions(nextSteps, levels - 1);
+      from = to;
+    }
+    INST_CACHE[`${fullKey}-${levels}`] = {
+      count: countForKey,
+      lastKey: from,
+    };
+
+    countOnLevel += countForKey;
   }
 
-  return instructions;
+  return countOnLevel;
 };
 
 const getNumberInstructionOptions = (
@@ -275,60 +215,39 @@ const getNumberInstructionOptions = (
   return instructions;
 };
 
-const iterateLevels = (options: string[][], levels: number): string => {
-  let shortestInstructions: string = "";
+const iterateLevels = (options: string[][], levels: number): bigint => {
+  let shortestInstructions = 0n;
 
   for (const part of options) {
-    let shortestOption: string = "";
+    let shortestOption = 0n;
     for (const option of part) {
-      let currentOption = option;
-      let currentLevel = 0;
-      const generationMap: number[] = [];
-
-      for (; currentLevel < levels; currentLevel++) {
-        currentOption = getInstructions(currentOption);
-
-        if (
-          generationMap.at(currentLevel) &&
-          currentOption.length > generationMap[currentLevel]
-        ) {
-          break;
-        }
-
-        generationMap[currentLevel] = currentOption.length;
-      }
-
-      if (
-        currentLevel === levels &&
-        (shortestOption.length === 0 ||
-          currentOption.length < shortestOption.length)
-      ) {
-        shortestOption = currentOption;
+      const countForOption = getInstructions(option, levels);
+      if (countForOption <= shortestOption || shortestOption === 0n) {
+        shortestOption = countForOption;
       }
     }
 
-    shortestInstructions = shortestInstructions.concat(shortestOption);
+    shortestInstructions += shortestOption;
   }
   return shortestInstructions;
 };
 
-let totalA = 0;
-let totalB = 0;
+let totalA = 0n;
+let totalB = 0n;
 
 for (const number of input) {
   const instructionOptionParts = getNumberInstructionOptions(number.split(""));
 
   const shortestInstructionsA = iterateLevels(instructionOptionParts, 2);
-  const lengthA = shortestInstructionsA.length;
+  const lengthA = shortestInstructionsA;
 
-  const shortestInstructionsB = iterateLevels(instructionOptionParts, 10);
-  const lengthB = shortestInstructionsB.length;
+  const shortestInstructionsB = iterateLevels(instructionOptionParts, 25);
+  const lengthB = shortestInstructionsB;
 
   const numberPart = Number(number.match(/[1-9][0-9]+/)[0]);
 
-  console.log(number, lengthA, lengthB, numberPart);
-  totalA += lengthA * numberPart;
-  totalB += lengthB * numberPart;
+  totalA += BigInt(lengthA) * BigInt(numberPart);
+  totalB += BigInt(lengthB) * BigInt(numberPart);
 }
 
 console.log({ totalA, totalB });
